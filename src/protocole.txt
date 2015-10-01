@@ -1,0 +1,141 @@
+-*- coding: utf8 -*-
+
+Paramètres du chat:
+
+Le serveur n’est pas sûr, il faut lui confier le moins possible ; il sert à distribuer les messages et à connecter les gens entre eux ;
+
+On lance le programme pour se connecter au serveur ; on obtient la liste des clients connectés à un instant donné.
+Protocole :
+
+**Authentification**
+
+Par deux, donc chez chacun du chat room dans lequel on arrive (B, C et D par exemple)
+
+ *les étapes*
+
+1.      A connaît K_A, k_A et K_B. Il choisit n_A et calcule n’_A = E(K_B, n_A)
+
+2.      A->B : A, n,_A
+
+3.      B connaît K_B, k_B, K_A. Il décode n_A = D(k_B, n’_A). Il choisit n_B et calcule n’_B = E(K_A, n_B), ainsi que l_B = h(n_A :n_B)
+
+4.      B->A : B, b’_B, l_B
+
+5.      A retrouve n_B = D(k_A, n’_B) et vérifie que h(n_A :n_B) = l_B. Il calcule aussi l_A = h(n_B :n_A)
+
+6.      A->B : l_A
+
+7.      B vérifie que h(n_B :n_A) = l_A.
+
+ 
+
+*Bilan :*
+
+L’étape de hashage assure l’intégrité des envois.
+
+Le choix de la méthode RSA permet d’être confidentiel.
+
+ 
+**Dans une chat-room :**
+
+A connaît k_AB, k_BA, k_AC, k_CA
+
+Il possède les compteurs i_A, i_B, i_C.
+
+De même pour B et C.
+
+On veut envoyer un message à B et C :
+
+Il faut une clé de chiffrement spécifique au message :
+
+k = h(i_A, n_AB, n_AC)
+k_B = e(k_AB, k) et k_C = e(k_BC, k) (donc un chiffre le même message différemment pour B et C)
+
+on calcule aussi un résumé de chacun :
+
+r_B = h(i_A, m, k_AB) et r_C = h(i_B, m, k_AC)
+
+
+A envoie alors :
+
+m, k_B, k_C, i_A, r_B, r_C
+
+ 
+
+Confidentialité : oui, seuls ceux qui ont k_AB et k_AC peuvent lire les messages (donc seuls B et C)
+
+Intégrité : le résumé l’assure
+
+Authentification : A et B peuvent authentifier un message chiffré à partir de k_AB donc B sait que l’expéditeur est A si ce n’est pas lui-même.
+
+**Diagramme UML :**
+
+*Serveur :*
+---
+list_clients_connect : []  (un dictionnaire de {A, k_A})
+----
+Distribuer(Message m)
+---
+
+*Client :*
+---
+Id
+name
+k_A
+list_public_key : []
+list_key_msg : []
+list_incr_msg : []
+---
+send(msg)
+create_auth(dest)
+chiffr(msg)
+read(msg)
+---
+ 
+*Message :*
+---
+Message
+emetteur :
+destinataires : []
+content : json
+type :
+---
+---
+
+ 
+*Chat room :*
+---
+
+ 
+**Script shell et commandes :**
+
+A>start(serveur)
+[B]
+A>auth(B)
+---
+B>start(serveur)
+[ ]
+[A]
+“demande d’auth de A”
+B>auth(A) OK
+
+
+
+**Exemples de commandes :**
+
+>B ,C : salut 	écrire à B et C
+> : salut		écrire à tout le monde authentifié chez moi
+> !				connection serveur
+> ? A			demande d’authentification chez A
+> & A			accepter la connection de 1
+	
+
+**Remarques :**
+
+-Attention à la simultanéité des actions !
+
+-Facilité syntaxique pour écrire aux autres
+
+-Dans une chat room on écrit à tout le monde sauf à ceux pas encore arrivés, donc ceux-ci auront un problème de compteur. Donc ça ne rajoute pas de difficulté si on tolère le saut de message (donc qu’A n’envoie qu’à B un message, puis à tous les suivants)
+
+-Retrouver l’historique si on arrive dans la chat room à un instant donné ? Plutôt pas...

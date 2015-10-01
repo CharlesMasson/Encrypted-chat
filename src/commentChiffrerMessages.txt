@@ -1,0 +1,56 @@
+**toute première connection**
+1. Créer une paire de clés privées/publiques pour l'utilisateur
+>generate(bits, randfunc=None, progress_func=None, e=65537)
+>key = RSA.generate(2048)
+
+Avec dedans :
+n, the modulus (qui vaut donc p*q)
+e, the public exponent.
+-et la partie privée-
+d, the private exponent.
+p, the first factor of n.
+q, the second factor of n.
+u, the CRT coefficient (1/p) mod q.
+
+2. Stocker les clés :
+On la met dans un répertoire qu'on crée sur le moment
+(à sérialiser et écrire en json)
+
+    >>> from Crypto.PublicKey import RSA
+    >>>
+    >>> key = RSA.generate(2048)
+    >>> f = open('mykey.pem','w')
+    >>> f.write(RSA.exportKey('PEM'))
+    >>> f.close()
+    ...
+    >>> f = open('mykey.pem','r')
+    >>> key = RSA.importKey(f.read())
+
+
+On aura aussi dans ce dossier un dictionnaire de {Nom, Clépublique} qui s'agrandit au fur et à mesure ; il sera initialisé par le serveur.
+
+3. S'authentifier :
+(rappel du protocole :
+1.      A connaît K_A, k_A et K_B. Il choisit n_A et calcule n2_A = E(K_B, n_A)
+2.      A->B : A, n,_A
+3.      B connaît K_B, k_B, K_A. Il décode n_A = D(k_B, n2_A). Il choisit n_B et calcule n2_B = E(K_A, n_B), ainsi que l_B = h(n_A :n_B)
+4.      B->A : B, b’_B, l_B
+5.      A retrouve n_B = D(k_A, n2_B) et vérifie que h(n_A :n_B) = l_B. Il calcule aussi l_A = h(n_B :n_A)
+6.      A->B : l_A
+7.      B vérifie que h(n_B :n_A) = l_A)
+
+Ce qui donne avec les méthodes python3-crypto :
+1: revient à générer un entier aléatoire n_A avec >Crypto.Random.random.getrandbits(k)
+	Return a python long integer with k random bits.
+	puis à calculer 
+2 : transmission d'un message selon protocole
+3 : >h = SHA.new() puis >h.update(b'n_A :n_B')
+4 :transmission d'un message selon protocole
+5 :
+6 : transmission d'un message selon protocole
+7 : hash final
+
+**remarques**
+attention aux tailles de clé
+on veut une clé reliée à n_A et n_B, donc attention à leur taille !
+
