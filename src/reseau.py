@@ -13,11 +13,11 @@ class MySocket():
 		self.socket = socket
 		self.buffer = b''
 		self.to_stop = False
-	
+
 	def connect(self, a):
 		self.socket.connect(a)
 		self.socket.settimeout(1)
-	
+
 	def envoyer_message_brut(self, message):
 		self.socket.send((str(len(message)) + '\n' + message).encode())
 
@@ -26,7 +26,7 @@ class MySocket():
 		result['emetteur'] = emetteur
 		result['destinataires'] = destinataires
 		result['type_msg'] = type_msg
-		result['content'] = content	
+		result['content'] = content
 		self.envoyer_message_brut(json.dumps(result))
 
 	def next_message(self):
@@ -58,7 +58,7 @@ class MySocket():
 					#print('data received')
 					break
 			self.buffer += data
-	
+
 	def next_message_decode(self):
 		return json.loads(self.next_message())
 
@@ -66,4 +66,3 @@ class MySocket():
 		#print('MySocket closed')
 		self.socket.shutdown(socket.SHUT_RDWR)
 		self.socket.close()
-

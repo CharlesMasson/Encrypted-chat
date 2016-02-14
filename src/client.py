@@ -1,77 +1,77 @@
 #!/usr/bin/env python3
 # -*- coding: utf8 -*-
 
-import sys
-import socket
-from threading import Thread
-import readline # better input
-import json
+import binascii
 import Crypto
 import Crypto.Random.random
-from Crypto.PublicKey import RSA
-from Crypto.Hash import SHA256
-from Crypto.Cipher import PKCS1_OAEP
-import reseau
-import hashlib
-import binascii
-import time
 import Cryptographie as c
 import fileinput
+import hashlib
+import json
 import os
+import readline # better input
+import reseau
+import socket
+import sys
+import time
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Hash import SHA256
+from Crypto.PublicKey import RSA
+from threading import Thread
 
 def byteToHex(byte):
 	return binascii.b2a_hex(byte).decode('ASCII')
-	
+
 def hexToByte(hex_str):
 	return binascii.a2b_hex(hex_str.encode('ASCII'))
 
 def save_public_keys(keys, fname):
-	jkeys={}
+	jkeys = {}
 	for user, rsa in keys.items():
-		jkeys[user]={'n':rsa.n, 'e':rsa.e}
-	f=open(fname, 'w')
+		jkeys[user] = {'n':rsa.n, 'e':rsa.e}
+	f = open(fname, 'w')
 	f.write(json.dumps(jkeys))
 	f.close()
 
 class Sender(Thread):
 	def __init__(self, socket, id_user, private_key, public_keys, keys_msg, incr_msg,temp):
 		Thread.__init__(self)
-		self.socket=socket
-		self.id_user=id_user
-		self.private_key=private_key
-		self.public_keys=public_keys
-		self.keys_msg=keys_msg
-		self.incr_msg=incr_msg
-		self.temp=temp
-	
+		self.socket = socket
+		self.id_user = id_user
+		self.private_key = private_key
+		self.public_keys = public_keys
+		self.keys_msg = keys_msg
+		self.incr_msg = incr_msg
+		self.temp = temp
+
 	def run(self):
 
 		while True:
 			m = input("> ")
-			if(m!=""):
+			if(m != ""):
 				action=m[0] #On récupère le type de l'action à réaliser:
-			
+
 				if action=="?":
 					#On effectue la 1ère étape du protocole d'authentification:
 					destinataire=m[1:] #On récupère le destinataire
-					
+
 					try:
 						n = Crypto.Random.random.getrandbits(128) #On génère un n aléatoire
 						messageAB = n.to_bytes(16, byteorder='big')
 						#on va le chiffrer avec la clé publique de B
 						cipher = PKCS1_OAEP.new(self.public_keys[destinataire])
 						n2 = cipher.encrypt(messageAB)
-					
+
 						In2=byteToHex(n2)
-					
+
 						#On stocke dans le fichier temporaire le n choisit
 						self.temp[destinataire]={}
 						self.temp[destinataire]["n_perso"]=n
-					
-						content={} 
+
+						content={}
 						content["n2"]=In2
 						self.socket.envoyer_message('demande_auth_1', self.id_user, [destinataire], content)
-					
+
 						print("Demande d'authentification envoyée")
 					except KeyError:
 						print("Cette personne n'est pas connectée ...")
@@ -80,7 +80,7 @@ class Sender(Thread):
 					#acceptation de la demande d'authentification de qqn
 					type_msg="accept"
 					user_asking=m[1:]
-					
+
 					try:
 						cipher = PKCS1_OAEP.new(self.private_key)
 						message = cipher.decrypt(self.temp[user_asking]["n2"])
@@ -99,7 +99,7 @@ class Sender(Thread):
 						h = SHA256.new()
 						h.update("{0}:{1}".format(Dn_A, n_B).encode('ASCII'))
 						l_B = h.hexdigest()
-				
+
 						#On stocke dans le fichier temporaire Dn_A et n_B
 						self.temp[user_asking]["n_demandeur"]=Dn_A
 						self.temp[user_asking]["n_perso"]=n_B
@@ -107,10 +107,10 @@ class Sender(Thread):
 						content={}
 						content["n2_2"]=In2_B
 						content["l"]=l_B
-				
+
 						#On envoie à l'utilisateur demandant l'authentification B, nB' et lB (voir schéma authentification)
 						self.socket.envoyer_message('demande_auth_2', self.id_user, [user_asking], content)
-					
+
 						print("J'accepte l'authentification de "+user_asking)
 					except KeyError:
 						print("Cette personne ne vous a pas envoyé une demande d'authentification ...")
@@ -121,7 +121,7 @@ class Sender(Thread):
 					#On récupère les destinataires
 					dest=m_parts[0]
 					destinataires=dest.split(',') #On crée la liste des destinataires du message
-					
+
 					try:
 						keys={}
 						for user in destinataires:
@@ -134,7 +134,7 @@ class Sender(Thread):
 						#On chiffre le message
 						self.incr_msg=self.incr_msg+1
 						msg_chiffre, cles, resumes = c.pret_a_envoyer(message, keys, self.incr_msg)
-					
+
 						#On met toutes les infos necessaires dans du json
 						content={}
 						content["message"]=byteToHex(msg_chiffre) #Le message chiffré
@@ -143,7 +143,7 @@ class Sender(Thread):
 							content[user]={}
 							content[user]["k"]=byteToHex(cles[user]) #La clé k encryptée avec la clé de communication
 							content[user]["r"]=byteToHex(resumes[user]) #Le résumé r pour l'intégrité
-					
+
 						#On transpose notre dictionnaire au format json
 						self.socket.envoyer_message('message', self.id_user, destinataires, content)
 					except KeyError:
@@ -152,7 +152,7 @@ class Sender(Thread):
 class Receiver(Thread):
 	def __init__(self,socket,id_user, private_key, public_keys, keys_msg, incr_msg,temp):
 		Thread.__init__(self)
-		self.socket=socket		
+		self.socket=socket
 		self.id_user=id_user
 		self.private_key=private_key
 		self.public_keys=public_keys
@@ -161,14 +161,14 @@ class Receiver(Thread):
 		self.temp=temp
 
 	def run(self):
-		
+
 		while True:
 			#On récupère les messages:
 			#print("Attente de réception d'un message")
 			message=self.socket.next_message_decode()
 			#print("Réception d'un message")
 			type_msg=message["type_msg"]
-			
+
 			if type_msg=="demande_auth_1": #1ère PARTIE DE L'AUTHENTIFICATION
 				#On récupère les informations envoyées par l'emetteur:
 				emetteur=message["emetteur"]
@@ -178,14 +178,14 @@ class Receiver(Thread):
 				self.temp[emetteur]={}
 				n2_recu=message["content"]["n2"]
 				self.temp[emetteur]["n2"]=hexToByte(n2_recu)
-			 
+
 			if type_msg=="demande_auth_2": #2ème PARTIE DE L'AUTHENTIFICATION
 				emetteur=message["emetteur"]
 				n_A=self.temp[emetteur]["n_perso"]
 				n2_B_recu=message["content"]["n2_2"]
 				n2_B=hexToByte(n2_B_recu)
 				l_B=message["content"]["l"]
-				#A retrouve n_B = D(k_A, n’_B) 
+				#A retrouve n_B = D(k_A, n’_B)
 				#et vérifie que h(n_A :n_B) = l_B.
 				#Il calcule aussi l_A = h(n_B :n_A)
 
@@ -213,16 +213,16 @@ class Receiver(Thread):
 				h = SHA256.new()
 				h.update("{0}:{1}".format(Dn_B, n_A).encode('ASCII'))
 				l_A = h.hexdigest()
-				
+
 				#On envoie l_A à emetteur:
 				self.socket.envoyer_message('demande_auth_3', self.id_user, [emetteur], l_A)
-				
+
 				#ON CRÉE LES CLÉS POUR L'ÉCHANGE DE MESSAGES
 				#enfin, on crée la clé k_AB pour que A parle à B
 				h = SHA256.new()
 				h.update("{0}:{1}:{2}".format(Dn_B, n_A, "AB").encode('ASCII'))
 				ksd = h.digest()[:16]
-				
+
 				h = SHA256.new()
 				h.update("{0}:{1}:{2}".format(n_A, Dn_B, "BA").encode('ASCII'))
 				kds = h.digest()[:16]
@@ -231,7 +231,7 @@ class Receiver(Thread):
 				self.keys_msg[emetteur]={}
 				self.keys_msg[emetteur]['ksd']=ksd
 				self.keys_msg[emetteur]['kds']=kds
-				
+
 			if type_msg=="demande_auth_3": #3ème PARTIE DE L'AUTHENTIFICATION
 				emetteur=message["emetteur"]
 				l_autre=message["content"]
@@ -251,7 +251,7 @@ class Receiver(Thread):
 					h = Crypto.Hash.SHA256.new()
 					h.update("{0}:{1}:{2}".format(n_B, Dn_A, "AB").encode('ASCII'))
 					kds = h.digest()[:16]
-				
+
 					h = Crypto.Hash.SHA256.new()
 					h.update("{0}:{1}:{2}".format(Dn_A, n_B, "BA").encode('ASCII'))
 					ksd = h.digest()[:16]
@@ -263,17 +263,17 @@ class Receiver(Thread):
 
 				else :
 					print("Erreur dans l'authentification")
-				
+
 
 			elif type_msg=="message":
-				
+
 				emetteur=message["emetteur"]
 				content=message["content"] #on récupère le contenu du message au format json
 				message_c=hexToByte(content["message"])
-				
+
 				#On décode le message et on l'affiche
 				message_dechiffre, resume_B = c.retrouver_message(message_c, hexToByte(content[self.id_user]['k']), self.keys_msg[emetteur]['kds'], int(content["incr"]))
-				
+
 				#print(message_dechiffre)
 				#print(resume_B)
 				#On vérifie l'intégrité du message:
@@ -281,7 +281,7 @@ class Receiver(Thread):
 					print("Problème d'intégrité du message")
 				else:
 					print(emetteur+" : "+message_dechiffre)
-				
+
 			elif type_msg=="msg_serveur": #Réponse du serveur lors de la 1ère connexion
 				print("Reception d'un message du serveur")
 				#On récupère les clés publiques des utilisateurs connectés:
@@ -306,24 +306,24 @@ class Receiver(Thread):
 
 				K=(public_key['n'],public_key['e'])
 				oK=RSA.construct(K)
-				
+
 				self.public_keys[id_nv_client]=oK #On crée une nouvelle clé publique dans la liste des clés publiques
 				save_public_keys(self.public_keys, 'public_keys.json')
-				
+
 				print("Un nouvel utilisateur s'est connecté: "+id_nv_client)
-					
+
 
 class User:
 	def __init__(self, id_user, host, port):
-		self.id_user=id_user
-		self.socket=reseau.MySocket()
-		self.keys_msg={}
-		self.incr_msg=0
-		self.temp={}
+		self.id_user = id_user
+		self.socket = reseau.MySocket()
+		self.keys_msg = {}
+		self.incr_msg = 0
+		self.temp = {}
 		#créer une paire de clés pour A :
 		print('création d\'une paire de clés publique/privée')
-		
-		if not os.path.exists(self.id_user + '.pem'): 
+
+		if not os.path.exists(self.id_user + '.pem'):
 			mdp1 = input('création d\'une clé publique pour '+self.id_user + '\nEntrer un mot-de-passe\n')
 			A = RSA.generate(2048)
 			K_A = (A.n, A.e)
@@ -336,13 +336,13 @@ class User:
 			f = open(self.id_user + '.pem','bw')
 			f.write(A.exportKey('PEM', passphrase=mdp1))
 			f.close()
-		else :
+		else:
 			print('le nom '+ self.id_user + ' est déjà utilisé')
 
 
-		if os.path.exists(self.id_user + '.pem'): 
+		if os.path.exists(self.id_user + '.pem'):
 			# On le récupère
-			try :
+			try:
 				mdp2 = input('recherche du nom ' + self.id_user + ' dans le dossier\nEntrer votre mot-de-passe\n')
 				f = open(self.id_user + '.pem','br')
 				A = RSA.importKey(f.read(), passphrase=mdp2)
@@ -351,7 +351,7 @@ class User:
 				oK = RSA.construct(K_A)
 				ok = RSA.construct(k_A)
 				f.close()
-				
+
 			except ValueError:
 				print('Mauvais mot-de-passe pour ' + self.id_user)
 
@@ -362,7 +362,7 @@ class User:
 		self.private_key=ok
 		jK={'n':A.n,'e':A.e}
 		self.public_keys={}
-		if os.path.exists('public_keys.json'): 
+		if os.path.exists('public_keys.json'):
 			f=open('public_keys.json','r')
 			keys=json.loads(f.read())
 			for user in keys.keys():
@@ -370,20 +370,32 @@ class User:
 				oK=RSA.construct(K)
 				self.public_keys[user]=oK
 
-		self.public_keys[id_user]=oK
+		self.public_keys[id_user] = oK
 		self.socket.connect((host, port))#envoi d'une demande de connexion au serveur
-		self.envoi=Sender(self.socket,self.id_user,self.private_key,self.public_keys,self.keys_msg,self.incr_msg,self.temp)
-		self.reception=Receiver(self.socket,self.id_user,self.private_key,self.public_keys,self.keys_msg,self.incr_msg,self.temp)
-		self.envoi.start()
-		self.reception.start()
-		time.sleep(1)
-		#On envoie des infos au serveur:
-		self.socket.envoyer_message("identification",self.id_user,[],jK)	
-	
+		self.envoi = Sender(self.socket, self.id_user, self.private_key, self.public_keys, self.keys_msg, self.incr_msg, self.temp)
+		self.reception = Receiver(self.socket, self.id_user, self.private_key, self.public_keys, self.keys_msg, self.incr_msg, self.temp)
 
-id_user=sys.argv[1]
-host=sys.argv[2]
-port=int(sys.argv[3])
+		try:
 
-user=User(id_user, host, port)
+			self.envoi.start()
+			self.reception.start()
+			time.sleep(1)
 
+			#On envoie des infos au serveur:
+			self.socket.envoyer_message("identification", self.id_user, [], jK)
+
+			while True:
+				time.sleep(100)
+		except KeyboardInterrupt:
+			print("interrupting now")
+			sys.exit(0)
+
+id_user = sys.argv[1]
+host = sys.argv[2]
+port = int(sys.argv[3])
+
+# try:
+user = User(id_user, host, port)
+# except KeyboardInterrupt:
+# 	print("interrupting")
+# 	sys.exit(0)

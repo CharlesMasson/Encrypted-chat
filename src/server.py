@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-# -*- coding: utf8 -*-
 
-import sys
-import socket
-import message
-from threading import Thread
-import reseau
 import json
+import message
+import reseau
 import signal
-
+import socket
+import sys
+from threading import Thread
 
 class ListenerClient(Thread):
 	def __init__(self, sock, sockets, cles_publiques):
@@ -63,7 +61,7 @@ class Serveur():
 		self.client_connect=[]
 		self.cles_publiques = {}
 		self.sockets = {}
-		self.sock = socket.socket() 
+		self.sock = socket.socket()
 
 	def fermer(self, signum, frame):
 		print('Serveur fermé')
@@ -81,6 +79,7 @@ class Serveur():
 		self.sock.bind((host, port))
 		self.sock.listen(5)
 		print('Serveur initialisé')
+		print(socket.gethostbyname(host))
 		while True:
 			so, ad = self.sock.accept()
 			t = ListenerClient(so, self.sockets, self.cles_publiques)
@@ -88,10 +87,9 @@ class Serveur():
 			self.client_connect.append(t)
 
 
-			
+
 try:
 	serveur=Serveur()
 	serveur.attendre_client()
 except KeyboardInterrupt:
 	sys.exit(0)
-
